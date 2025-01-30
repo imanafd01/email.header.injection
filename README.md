@@ -1,144 +1,160 @@
-# Email Header Injection: Setup and Demonstration Guide
+# Email Header Injection: Docker Setup and Exploitation Guide
 
-This guide explains how to set up a local environment to test an **Email Header Injection** attack using **MailHog**. The goal is to understand the vulnerabilities related to email headers and experiment with sending a spoofed email via a local SMTP server.
-
-## Why Use MailHog?
-MailHog is a lightweight, local SMTP testing tool that captures emails without actually sending them to real inboxes. It allows for safe email testing by simulating an email server, making it an ideal solution for evaluating vulnerabilities such as email header injection.
-
-**Warning**: This project is for educational purposes only and must be used in a controlled environment. Any unauthorized attempt to attack third-party systems is illegal.
-
----
+This guide explains how to set up a Dockerized environment for testing Email Header Injection. We will use MailHog, an open-source email testing tool that captures outgoing emails sent from a local development environment, allowing us to test email functionality without sending real emails and to demonstrate, ethically, how email headers can be manipulated. This project is for **educational purposes only** and should be used in a controlled environment.
 
 ## Prerequisites
 
-1. **Python 3 installed**: Verify with the command:
+1. **Python Installed**: Ensure Python is installed on your system.
+   - Check with:
+     ```bash
+     python --version
+     ```
+   - Download from [python.org](https://www.python.org/downloads/) if necessary.
+
+2. **MailHog installed**: Verify with the command:
    ```bash
-   python3 --version
+   mailhog --version
    ```
-   If Python is not installed, download it from [python.org](https://www.python.org/).
+   If MailHog is not installed, download it from [MailHog Releases](https://github.com/mailhog/MailHog/releases).
 
-2. **Docker installed**: MailHog runs via Docker. Check if Docker is installed:
-   ```bash
-   docker --version
-   ```
-   Download it from [docker.com](https://www.docker.com/) if necessary.
+3. **Docker Installed**: Ensure Docker is installed on your system.
+   - Check Docker version:
+     ```bash
+     docker --version
+     ```
+   - Install from [docker.com](https://www.docker.com/) if necessary.
 
-3. **Basic command line knowledge**: You should be comfortable running commands in a terminal.
-
----
-
-## Installation and Configuration
-
-### Step 1: Clone this Git repository
-Run the following command to retrieve the project:
-
-```bash
-git clone https://github.com/your-username/email-header-injection.git
-cd email-header-injection
-```
-
-### Step 2: Install and Start MailHog
-MailHog is a simple tool that captures emails sent through a local SMTP server. We will use it to view emails without them actually reaching an inbox.
-
-#### Option 1: Run MailHog with Docker (Recommended)
-Start MailHog:
-
-```bash
-docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
-```
-- `-d`: Runs MailHog in the background.
-- `-p 1025:1025`: Opens the SMTP port on 1025.
-- `-p 8025:8025`: Allows access to the MailHog web interface.
-
-Verify that MailHog is running by accessing [http://localhost:8025](http://localhost:8025) in your browser.
-
-#### Option 2: Run MailHog as a Binary (Without Docker)
-Download MailHog:
-
-```bash
-wget https://github.com/mailhog/MailHog/releases/download/v1.0.1/MailHog_linux_amd64
-```
-
-Make it executable:
-
-```bash
-chmod +x mailhog__amd64
-```
-
-Run MailHog:
-
-```bash
-./mailhog_amd64
-```
-
-You can then access [http://localhost:8025](http://localhost:8025) to view captured emails.
-
-### Step 3: Run the Email Injection Script
-The Python script `email_injection.py` sends a spoofed email by manipulating headers. Execute it with:
-
-```bash
-python3 email_injection.py
-```
-
-#### Script Explanation:
-- **Real sender**: `evil.sender@mail.com`
-- **Simulated recipient**: `my.mail@mail.com`
-- **Injected headers**:
-  - `From: your.mom@outlook.com` (Hides the sender's real identity)
-  - `X-Mailer: Microsoft Outlook` (Makes it appear as if sent from Outlook)
-  - `Reply-To: evil.sender@example.com` (Redirects replies to the attacker)
-  - `X-Injected-Header: Safe mail` (Adds a custom header)
-
-The email content is a fraudulent message requesting a bank transfer.
+4. **Basic Command Line Knowledge**: Ability to navigate and run commands in the terminal.
 
 ---
 
-## Viewing Emails in MailHog
-After executing the script, open [http://localhost:8025](http://localhost:8025) to view the captured email.
+## **Setting Up the Environment**
 
-You should see:
-- The email with the falsified sender address `your.mom@outlook.com`.
-- The injected headers in MailHog's **Raw** tab.
-- The body of the message containing the fraudulent request.
+### **Step 1: Create a Docker Network**
+
+We first create a Docker network to allow communication between containers:
+
+```bash
+docker network create email_network
+```
+
+If a Docker network already exists, delete it and create a new one:
+
+```bash
+docker network rm email_network
+docker network create email_network
+```
+
+
+
+### **Step 2: Run MailHog in Docker**
+
+MailHog will act as a fake SMTP server to capture and display emails.
+
+```bash
+docker run -d --network=email_network --name mailhog -p 8025:8025 -p 1025:1025 mailhog/mailhog
+```
+
+- `-d` → Runs MailHog in the background.
+- `--network=email_network` → Ensures it can communicate with the email injection script.
+- `--name mailhog` → Names the container "mailhog".
+- `-p 8025:8025` → Exposes the MailHog web interface.
+- `-p 1025:1025` → Exposes the SMTP server on port 1025.
+
+Verify that MailHog is running:
+
+```bash
+docker ps
+```
+
+Then, open MailHog's web UI:
+
+[MailHog Web Interface](http://localhost:8025)
+
+### **Step 3: Build and Run the Email Injection Script in Docker**
+
+Before running the email injection script, you need to **build the Docker image** from the files provided in this repository.
+
+#### **1 Build the Docker Image**
+Navigate to the directory containing the cloned repository and run:
+
+```bash
+docker build -t email-header-injection .
+```
+
+This will create a Docker image named **email-header-injection**.
+
+#### **2️ Run the Email Injection Script in Docker**
+Once the image is built, execute the following command to run the container and connect it to MailHog:
+
+```bash
+docker run --rm --network=email_network -e SMTP_HOST="mailhog" -e SMTP_PORT="1025" email-header-injection
+```
+
+- `--rm` → Automatically removes the container after execution.
+- `--network=email_network` → Connects to the MailHog container.
+- `-e SMTP_HOST="mailhog"` → Uses MailHog as the SMTP server.
+- `-e SMTP_PORT="1025"` → Uses port 1025 for SMTP communication.
+
+After running this command, check MailHog to see the captured email:  
+ **[http://localhost:8025](http://localhost:8025)**
+
 
 ---
 
-## Risks and Impact of Email Header Injection
-Email header injection is a serious vulnerability exploited for:
-- **Identity spoofing**: The attacker falsifies the sender address to impersonate a trusted individual.
-- **Phishing**: The email may contain a malicious link prompting the victim to enter personal information.
-- **Financial fraud**: The attacker may send fake payment or bank transfer requests.
-- **Reputation damage**: A company’s name can be used to send spam or fraudulent emails.
+## **Understanding Email Header Injection**
+
+### **What is Email Header Injection?**
+
+Email header injection is a security vulnerability where an attacker manipulates email headers to:
+
+- Spoof sender information (make emails appear from trusted sources).
+- Redirect replies to a different email address.
+- Inject custom headers for malicious purposes.
+
+### **How Does the Attack Work?**
+
+1. A vulnerable email-sending script allows user inputs to be injected into email headers.
+2. An attacker manipulates headers to modify the `From`, `Reply-To`, or `CC` fields.
+3. The victim receives a spoofed email that appears legitimate.
+
+### **Example of Injected Headers**
+
+The following script manipulates headers before sending an email:
+
+```python
+headers = {
+    "From": "your.mom@outlook.com",
+    "To": "victim@mail.com",
+    "Subject": "Emergency",
+    "X-Mailer": "Microsoft Outlook",
+    "Reply-To": "attacker@example.com",
+    "X-Injected-Header": "Safe mail"
+}
+```
+
+This can make the email look like it was sent by `your.mom@outlook.com`, even though it was actually sent from another address.
 
 ---
 
-## Security Measures to Prevent This Attack
-### Strict validation of user inputs:
-- Disallow line breaks (`\r`, `\n`) in **From**, **To**, and **Subject** fields.
-- Reject inputs containing `<script>` or other malicious HTML tags.
+## **Mitigation Strategies**
 
-### Use secure SMTP servers:
-- Enable **SPF**, **DKIM**, and **DMARC** on your domain to prevent identity spoofing.
+To prevent Email Header Injection, developers should:
 
-### Do not trust incoming email headers:
-- Verify the sender’s authenticity by inspecting the **Received** header.
+- **Sanitize User Inputs**: Disallow newline characters (`\r`, `\n`) in email headers.
+- **Use Secure SMTP Authentication**: Ensure email servers enforce proper authentication mechanisms.
+- **Enable SPF, DKIM, and DMARC**: These email security standards help prevent spoofing.
+- **Avoid Direct User Input in Headers**: Use predefined templates for emails instead of dynamic user inputs.
 
 ---
 
-## Conclusion
-This project demonstrates how email header injection can be exploited to deceive recipients. The goal is to raise awareness of the risks and protective measures.
+## **Key Takeaways**
 
-**Key takeaways**:
-- Simple header modifications can mislead recipients.
-- MailHog enables safe testing of these attacks.
-- Good cybersecurity hygiene is essential to prevent email fraud.
+This guide demonstrated how to:
 
-**Disclaimer**
-This project is for educational purposes only. Exploiting vulnerabilities outside an authorized environment is illegal.
+- Set up a Docker environment for testing email header injection.
+- Run MailHog to safely capture spoofed emails.
+- Execute an email injection attack in a controlled setting.
+- Understand the risks and mitigation strategies.
 
----
-
-## References
-- [MailHog Documentation](https://github.com/mailhog/MailHog)
-- [SMTP Injection Vulnerability Guide](https://owasp.org/www-community/vulnerabilities/SMTP_Injection)
-- [DKIM, SPF & DMARC Explained](https://dmarc.org/)
+**Disclaimer**: This guide is for educational and ethical security testing purposes only. Do not use this information for illegal activities.
