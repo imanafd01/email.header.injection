@@ -29,6 +29,7 @@ This guide explains how to set up a Dockerized environment for testing Email Hea
 ---
 
 ## **Setting Up the Environment**
+Start by downloading all the files in one folder.
 
 ### **Step 1: Create a Docker Network**
 
